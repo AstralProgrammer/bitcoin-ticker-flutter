@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'coin_data.dart';
 import 'package:flutter/cupertino.dart';
 import 'dart:io' show Platform;
+import 'modules/crypto_card.dart';
 
 class PriceScreen extends StatefulWidget {
   @override
@@ -10,8 +11,9 @@ class PriceScreen extends StatefulWidget {
 
 class _PriceScreenState extends State<PriceScreen> {
   String selectedCurrency;
-  double currentBTCRate = 0;
   CoinData coinData = CoinData();
+  Map<String, String> rateList = {};
+  bool isWaiting = false;
 
   DropdownButton<String> androidDropDown() {
     List<DropdownMenuItem<String>> dropdownList = [];
@@ -28,11 +30,10 @@ class _PriceScreenState extends State<PriceScreen> {
       value: selectedCurrency,
       items: dropdownList,
       onChanged: (value) async {
-        double newRate = await coinData.getCoinData(value, 'btc');
         setState(() {
           selectedCurrency = value;
-          currentBTCRate = newRate;
         });
+        getData();
       },
     );
   }
@@ -49,11 +50,10 @@ class _PriceScreenState extends State<PriceScreen> {
       itemExtent: 32.0,
       onSelectedItemChanged: (selectedIndex) async {
         var selectedCurrency = currenciesList[selectedIndex];
-        double newRate = await coinData.getCoinData(selectedCurrency, 'btc');
         setState(() {
           selectedCurrency = selectedCurrency;
-          currentBTCRate = newRate;
         });
+        getData();
       },
       children: dropdownList,
     );
@@ -62,6 +62,35 @@ class _PriceScreenState extends State<PriceScreen> {
   @override
   void initState() {
     super.initState();
+    getData();
+  }
+
+  void getData() async {
+    isWaiting = true;
+    try {
+      var data = await coinData.getCoinData(selectedCurrency);
+      isWaiting = false;
+
+      setState(() {
+        rateList = data;
+      });
+    } catch (e) {
+      print(e);
+    }
+  }
+
+  List<CryptoCard> cryptoCardList () {
+    List<CryptoCard> list = [];
+    for (String crypto in cryptoList) {
+      var item = CryptoCard(
+        currency: crypto,
+        //7. Finally, we use a ternary operator to check if we are waiting and if so, we'll display a '?' otherwise we'll show the actual price data.
+        value: isWaiting ? '?' : rateList[crypto],
+        selected: selectedCurrency,
+      );
+      list.add(item);
+    }
+    return list;
   }
 
   @override
@@ -74,26 +103,9 @@ class _PriceScreenState extends State<PriceScreen> {
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: <Widget>[
-          Padding(
-            padding: EdgeInsets.fromLTRB(18.0, 18.0, 18.0, 0),
-            child: Card(
-              color: Colors.lightBlueAccent,
-              elevation: 5.0,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10.0),
-              ),
-              child: Padding(
-                padding: EdgeInsets.symmetric(vertical: 15.0, horizontal: 28.0),
-                child: Text(
-                  '1 BTC = $currentBTCRate $selectedCurrency',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 20.0,
-                    color: Colors.white,
-                  ),
-                ),
-              ),
-            ),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: cryptoCardList(),
           ),
           Container(
             height: 150.0,
